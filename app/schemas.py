@@ -56,3 +56,11 @@ class LoginResponse(BaseModel):
     success: bool
     token: Optional[str] = None
     message: Optional[str] = None
+
+
+class SettingsUpdate(BaseModel):
+    image_dir: Optional[str] = None
+    db_path: Optional[str] = None
+    admin_user: Optional[str] = None
+    admin_password: Optional[str] = None
+    max_file_size_mb: Optional[int] = None

@@ -431,14 +431,18 @@
 
                 async saveSettings() {
                     try {
-                        const body = new URLSearchParams();
-                        if (this.settingsForm.image_dir) body.append('image_dir', this.settingsForm.image_dir);
-                        if (this.settingsForm.db_path) body.append('db_path', this.settingsForm.db_path);
-                        if (this.settingsForm.admin_user) body.append('admin_user', this.settingsForm.admin_user);
-                        if (this.settingsForm.admin_password) body.append('admin_password', this.settingsForm.admin_password);
-                        if (this.settingsForm.max_file_size_mb) body.append('max_file_size_mb', this.settingsForm.max_file_size_mb);
+                        const data = {};
+                        if (this.settingsForm.image_dir) data.image_dir = this.settingsForm.image_dir;
+                        if (this.settingsForm.db_path) data.db_path = this.settingsForm.db_path;
+                        if (this.settingsForm.admin_user) data.admin_user = this.settingsForm.admin_user;
+                        if (this.settingsForm.admin_password) data.admin_password = this.settingsForm.admin_password;
+                        if (this.settingsForm.max_file_size_mb) data.max_file_size_mb = parseInt(this.settingsForm.max_file_size_mb);
 
-                        const res = await this.fetchAuth('/admin/api/settings', { method: 'POST', body });
+                        const res = await this.fetchAuth('/admin/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        });
                         if (res.ok) {
                             this.settingsSaved = true;
                             setTimeout(() => { this.settingsSaved = false; }, 3000);

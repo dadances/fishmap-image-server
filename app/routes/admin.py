@@ -6,7 +6,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request, D
 from app.config import settings
 from app.services import image_service
 from app.utils.file_utils import validate_file
-from app.schemas import ImageListResponse, ImageInfo, StatsResponse, ServerInfoResponse, LoginRequest, LoginResponse
+from app.schemas import ImageListResponse, ImageInfo, StatsResponse, ServerInfoResponse, LoginRequest, LoginResponse, SettingsUpdate
 
 router = APIRouter()
 
@@ -243,36 +243,32 @@ async def get_settings(_: None = Depends(verify_admin)):
 @router.post("/settings")
 async def update_settings(
     request: Request,
-    image_dir: Optional[str] = Form(None),
-    db_path: Optional[str] = Form(None),
-    admin_user: Optional[str] = Form(None),
-    admin_password: Optional[str] = Form(None),
-    max_file_size_mb: Optional[int] = Form(None),
+    body: SettingsUpdate,
     _: None = Depends(verify_admin),
 ):
     updates = {}
-    if image_dir is not None and image_dir.strip():
-        updates["IMAGE_DIR"] = image_dir
-        settings.IMAGE_DIR = image_dir
-        settings.BACKUP_DIR = os.path.join(image_dir, "backup")
-        os.makedirs(image_dir, exist_ok=True)
+    if body.image_dir and body.image_dir.strip():
+        updates["IMAGE_DIR"] = body.image_dir
+        settings.IMAGE_DIR = body.image_dir
+        settings.BACKUP_DIR = os.path.join(body.image_dir, "backup")
+        os.makedirs(body.image_dir, exist_ok=True)
         os.makedirs(settings.BACKUP_DIR, exist_ok=True)
-    if db_path is not None and db_path.strip():
-        updates["DB_PATH"] = db_path
-        settings.DB_PATH = db_path
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    if body.db_path and body.db_path.strip():
+        updates["DB_PATH"] = body.db_path
+        settings.DB_PATH = body.db_path
+        os.makedirs(os.path.dirname(body.db_path), exist_ok=True)
         from app.database import init_db
         init_db()
-    if admin_user is not None and admin_user.strip():
-        updates["ADMIN_USER"] = admin_user
-        settings.ADMIN_USER = admin_user
-    if admin_password is not None and admin_password.strip():
-        updates["ADMIN_PASSWORD"] = admin_password
-        settings.ADMIN_PASSWORD = admin_password
+    if body.admin_user and body.admin_user.strip():
+        updates["ADMIN_USER"] = body.admin_user
+        settings.ADMIN_USER = body.admin_user
+    if body.admin_password and body.admin_password.strip():
+        updates["ADMIN_PASSWORD"] = body.admin_password
+        settings.ADMIN_PASSWORD = body.admin_password
         ADMIN_TOKENS.clear()
-    if max_file_size_mb is not None and max_file_size_mb > 0:
-        updates["MAX_FILE_SIZE"] = max_file_size_mb * 1024 * 1024
-        settings.MAX_FILE_SIZE = max_file_size_mb * 1024 * 1024
+    if body.max_file_size_mb and body.max_file_size_mb > 0:
+        updates["MAX_FILE_SIZE"] = body.max_file_size_mb * 1024 * 1024
+        settings.MAX_FILE_SIZE = body.max_file_size_mb * 1024 * 1024
 
     settings.save_config(**updates)
 
