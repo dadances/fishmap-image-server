@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>钓鱼地图 - 图片管理后台</title>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        .login-box { max-width: 400px; margin: 100px auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .login-box h2 { margin-bottom: 20px; text-align: center; }
+        .login-box input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; }
+        .login-box button { width: 100%; padding: 12px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        .login-box button:hover { background: #40a9ff; }
+        .error { color: #ff4d4f; text-align: center; margin-top: 10px; }
+
+        .header { background: white; padding: 16px 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 20px; margin-bottom: 8px; }
+        .server-info { background: #e6f7ff; padding: 10px 16px; border-radius: 4px; margin-top: 10px; font-size: 14px; }
+        .server-info code { background: #fff; padding: 2px 6px; border-radius: 3px; }
+
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .stat-card { background: white; padding: 20px; border-radius: 8px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .stat-card .num { font-size: 32px; font-weight: bold; color: #1890ff; }
+        .stat-card .label { color: #666; margin-top: 4px; }
+
+        .filters { background: white; padding: 16px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .filters input, .filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; }
+        .filters button { padding: 8px 16px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+        .image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .image-card { background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .image-card img { width: 100%; height: 150px; object-fit: cover; }
+        .image-card .info { padding: 12px; font-size: 12px; }
+        .image-card .info div { margin: 4px 0; }
+        .image-card .info .uid { color: #1890ff; }
+        .image-card .info .status-active { color: #52c41a; }
+        .image-card .info .status-replaced { color: #faad14; }
+        .image-card .info .status-deleted { color: #ff4d4f; }
+        .image-card .actions { padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; }
+        .image-card .actions button { flex: 1; padding: 6px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .btn-replace { background: #faad14; color: white; }
+        .btn-delete { background: #ff4d4f; color: white; }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; }
+        .modal-content h3 { margin-bottom: 16px; }
+        .modal-content input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; }
+        .modal-content .btn-group { display: flex; gap: 12px; margin-top: 16px; }
+        .modal-content .btn-group button { flex: 1; padding: 10px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #1890ff; color: white; }
+        .btn-cancel { background: #f0f0f0; }
+
+        .pagination { display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
+        .pagination button { padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; }
+        .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .pagination button.active { background: #1890ff; color: white; border-color: #1890ff; }
+
+        .loading { text-align: center; padding: 40px; color: #999; }
+    </style>
+</head>
+<body>
+    <div x-data="adminApp()" x-init="init()">
+        <template x-if="!loggedIn">
+            <div class="login-box">
+                <h2>图片管理后台</h2>
+                <input type="text" x-model="username" placeholder="用户名" @keyup.enter="login()">
+                <input type="password" x-model="password" placeholder="密码" @keyup.enter="login()">
+                <button @click="login()">登录</button>
+                <div class="error" x-show="loginError" x-text="loginError"></div>
+            </div>
+        </template>
+
+        <template x-if="loggedIn">
+            <div class="container">
+                <div class="header">
+                    <h1>钓鱼地图 - 图片管理后台</h1>
+                    <div class="server-info" x-show="serverInfo">
+                        服务器IP: <code x-text="serverInfo?.local_ip"></code> |
+                        测试地址: <code x-text="serverInfo?.test_url"></code>
+                    </div>
+                </div>
+
+                <div class="stats" x-show="stats">
+                    <div class="stat-card">
+                        <div class="num" x-text="stats?.total"></div>
+                        <div class="label">总图片数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="num" x-text="stats?.active"></div>
+                        <div class="label">正常</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="num" x-text="stats?.replaced"></div>
+                        <div class="label">已替换</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="num" x-text="stats?.deleted"></div>
+                        <div class="label">已删除</div>
+                    </div>
+                </div>
+
+                <div class="filters">
+                    <input type="text" x-model="filters.uid" placeholder="用户UID">
+                    <input type="text" x-model="filters.spot_id" placeholder="钓点ID">
+                    <select x-model="filters.type">
+                        <option value="">全部类型</option>
+                        <option value="avatar">头像</option>
+                        <option value="fishing_spot">钓点</option>
+                        <option value="catch">渔获</option>
+                    </select>
+                    <select x-model="filters.status">
+                        <option value="">全部状态</option>
+                        <option value="active">正常</option>
+                        <option value="replaced">已替换</option>
+                        <option value="deleted">已删除</option>
+                    </select>
+                    <button @click="loadImages()">搜索</button>
+                </div>
+
+                <div class="image-grid">
+                    <template x-for="img in images" :key="img.id">
+                        <div class="image-card">
+                            <img :src="'/images/' + img.id + '.jpg'" @error="$el.src='/images/' + img.id + '.png'" alt="">
+                            <div class="info">
+                                <div>UID: <span class="uid" x-text="img.uid"></span></div>
+                                <div>类型: <span x-text="img.type"></span></div>
+                                <div x-show="img.spot_id">钓点: <span x-text="img.spot_id"></span></div>
+                                <div>IP: <span x-text="img.client_ip"></span></div>
+                                <div>状态: <span :class="'status-' + img.status" x-text="img.status"></span></div>
+                                <div x-show="img.replace_reason" style="color:#ff4d4f" x-text="img.replace_reason"></div>
+                                <div x-text="img.created_at"></div>
+                            </div>
+                            <div class="actions">
+                                <button class="btn-replace" @click="openReplace(img)">替换</button>
+                                <button class="btn-delete" @click="deleteImage(img.id)">删除</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="loading" x-show="loading">加载中...</div>
+
+                <div class="pagination" x-show="totalPages > 1">
+                    <button @click="page--; loadImages()" :disabled="page <= 1">上一页</button>
+                    <span style="padding: 8px" x-text="page + ' / ' + totalPages"></span>
+                    <button @click="page++; loadImages()" :disabled="page >= totalPages">下一页</button>
+                </div>
+
+                <div class="modal" x-show="showReplaceModal" @click.self="showReplaceModal = false">
+                    <div class="modal-content">
+                        <h3>替换图片</h3>
+                        <p style="margin-bottom: 12px; color: #666;">用户UID: <span x-text="currentImage?.uid"></span></p>
+                        <input type="file" @change="replaceFile = $event.target.files[0]" accept="image/*">
+                        <input type="text" x-model="replaceReason" placeholder="替换原因（默认：不符合平台规范）">
+                        <div class="btn-group">
+                            <button class="btn-cancel" @click="showReplaceModal = false">取消</button>
+                            <button class="btn-primary" @click="confirmReplace()">确认替换</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        function adminApp() {
+            return {
+                loggedIn: false,
+                token: localStorage.getItem('admin_token') || '',
+                username: '',
+                password: '',
+                loginError: '',
+                serverInfo: null,
+                stats: null,
+                images: [],
+                filters: { uid: '', spot_id: '', type: '', status: '' },
+                page: 1,
+                size: 20,
+                total: 0,
+                totalPages: 1,
+                loading: false,
+                showReplaceModal: false,
+                currentImage: null,
+                replaceFile: null,
+                replaceReason: '不符合平台规范',
+
+                init() {
+                    if (this.token) {
+                        this.loadAll();
+                    }
+                },
+
+                getHeaders() {
+                    return { 'X-Admin-Token': this.token };
+                },
+
+                async login() {
+                    this.loginError = '';
+                    try {
+                        const res = await fetch('/admin/api/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: this.username, password: this.password })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            this.token = data.token;
+                            this.loggedIn = true;
+                            localStorage.setItem('admin_token', this.token);
+                            this.loadAll();
+                        } else {
+                            this.loginError = data.message || '登录失败';
+                        }
+                    } catch (e) {
+                        this.loginError = '网络错误';
+                    }
+                },
+
+                async loadAll() {
+                    this.loggedIn = true;
+                    await Promise.all([this.loadStats(), this.loadServerInfo(), this.loadImages()]);
+                },
+
+                async loadStats() {
+                    try {
+                        const res = await fetch('/admin/api/stats', { headers: this.getHeaders() });
+                        this.stats = await res.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async loadServerInfo() {
+                    try {
+                        const res = await fetch('/admin/api/info', { headers: this.getHeaders() });
+                        this.serverInfo = await res.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async loadImages() {
+                    this.loading = true;
+                    try {
+                        const params = new URLSearchParams({
+                            page: this.page,
+                            size: this.size,
+                            ...Object.fromEntries(Object.entries(this.filters).filter(([_, v]) => v))
+                        });
+                        const res = await fetch(`/admin/api/images?${params}`, { headers: this.getHeaders() });
+                        const data = await res.json();
+                        this.images = data.images;
+                        this.total = data.total;
+                        this.totalPages = Math.ceil(this.total / this.size);
+                    } catch (e) { console.error(e); }
+                    this.loading = false;
+                },
+
+                openReplace(img) {
+                    this.currentImage = img;
+                    this.replaceFile = null;
+                    this.replaceReason = '不符合平台规范';
+                    this.showReplaceModal = true;
+                },
+
+                async confirmReplace() {
+                    if (!this.replaceFile) {
+                        alert('请选择替换图片');
+                        return;
+                    }
+                    const formData = new FormData();
+                    formData.append('file', this.replaceFile);
+                    formData.append('reason', this.replaceReason);
+
+                    try {
+                        const res = await fetch(`/admin/api/images/${this.currentImage.id}/replace`, {
+                            method: 'POST',
+                            headers: this.getHeaders(),
+                            body: formData
+                        });
+                        if (res.ok) {
+                            this.showReplaceModal = false;
+                            this.loadAll();
+                        } else {
+                            alert('替换失败');
+                        }
+                    } catch (e) { alert('网络错误'); }
+                },
+
+                async deleteImage(id) {
+                    if (!confirm('确定删除此图片？')) return;
+                    try {
+                        const res = await fetch(`/admin/api/images/${id}`, {
+                            method: 'DELETE',
+                            headers: this.getHeaders()
+                        });
+                        if (res.ok) {
+                            this.loadAll();
+                        } else {
+                            alert('删除失败');
+                        }
+                    } catch (e) { alert('网络错误'); }
+                }
+            };
+        }
+    </script>
+</body>
+</html>
