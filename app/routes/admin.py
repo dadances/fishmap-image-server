@@ -122,7 +122,14 @@ async def replace_image(
     ext = image_service.get_file_extension(mime_type)
 
     image_service.replace_image(image_id, ext, content)
-    image_service.update_image_status(image_id, "replaced", reason)
+
+    conn = image_service.get_connection()
+    conn.execute(
+        "UPDATE images SET mime_type = ?, file_size = ?, status = 'replaced', replace_reason = ?, version = version + 1, updated_at = datetime('now') WHERE id = ?",
+        (mime_type, len(content), reason, image_id),
+    )
+    conn.commit()
+    conn.close()
 
     return {"success": True, "message": "Image replaced"}
 

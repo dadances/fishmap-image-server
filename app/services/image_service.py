@@ -30,11 +30,8 @@ def get_file_extension(mime_type: str) -> str:
     return ext_map.get(mime_type, ".jpg")
 
 
-def get_image_url(file_id: str, ext: str, updated_at: Optional[str] = None) -> str:
-    base = f"/images/{file_id}{ext}"
-    if updated_at:
-        return f"{base}?v={updated_at}"
-    return base
+def get_image_url(file_id: str, ext: str, version: int = 1) -> str:
+    return f"/images/{file_id}{ext}?v={version}"
 
 
 def save_image(file_bytes: bytes, file_id: str, ext: str) -> str:
@@ -111,7 +108,7 @@ def create_image_record(
     conn.close()
     result = dict(row)
     ext = get_file_extension(result["mime_type"])
-    result["image_url"] = get_image_url(file_id, ext, result.get("updated_at"))
+    result["image_url"] = get_image_url(file_id, ext, result.get("version", 1))
     return result
 
 
@@ -122,7 +119,7 @@ def get_image_by_id(file_id: str) -> Optional[dict]:
     if row:
         result = dict(row)
         ext = get_file_extension(result["mime_type"])
-        result["image_url"] = get_image_url(file_id, ext, result.get("updated_at"))
+        result["image_url"] = get_image_url(file_id, ext, result.get("version", 1))
         return result
     return None
 
@@ -170,7 +167,7 @@ def list_images(
     for r in rows:
         result = dict(r)
         ext = get_file_extension(result["mime_type"])
-        result["image_url"] = get_image_url(result["id"], ext, result.get("updated_at"))
+        result["image_url"] = get_image_url(result["id"], ext, result.get("version", 1))
         results.append(result)
     return results, total
 
@@ -181,12 +178,12 @@ def update_image_status(
     conn = get_connection()
     if status == "recycled":
         conn.execute(
-            "UPDATE images SET status = ?, replace_reason = ?, deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ?",
+            "UPDATE images SET status = ?, replace_reason = ?, deleted_at = datetime('now'), updated_at = datetime('now'), version = version + 1 WHERE id = ?",
             (status, replace_reason, file_id),
         )
     else:
         conn.execute(
-            "UPDATE images SET status = ?, replace_reason = ?, deleted_at = NULL, updated_at = datetime('now') WHERE id = ?",
+            "UPDATE images SET status = ?, replace_reason = ?, deleted_at = NULL, updated_at = datetime('now'), version = version + 1 WHERE id = ?",
             (status, replace_reason, file_id),
         )
     conn.commit()
@@ -195,7 +192,7 @@ def update_image_status(
     if row:
         result = dict(row)
         ext = get_file_extension(result["mime_type"])
-        result["image_url"] = get_image_url(file_id, ext, result.get("updated_at"))
+        result["image_url"] = get_image_url(file_id, ext, result.get("version", 1))
         return result
     return None
 

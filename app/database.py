@@ -33,10 +33,16 @@ def init_db():
             replace_reason TEXT,
             client_ip TEXT,
             deleted_at TEXT,
+            version INTEGER DEFAULT 1,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         )
     """)
+
+    try:
+        cursor.execute("ALTER TABLE images ADD COLUMN version INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS admin_sessions (

@@ -1,11 +1,23 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from contextlib import asynccontextmanager
 from app.database import init_db
 from app.routes import upload, admin
 from app.config import settings
 import os
+
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response: Response = await call_next(request)
+        if request.url.path.startswith("/images/"):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
 
 
 @asynccontextmanager
@@ -23,6 +35,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FishMap Image Server", version="1.0.0", lifespan=lifespan)
 
+app.add_middleware(NoCacheMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

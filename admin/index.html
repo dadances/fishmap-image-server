@@ -307,12 +307,34 @@
 
                 init() {
                     if (this.token) {
-                        this.loadAll();
+                        this.tryAutoLogin();
                     }
                 },
 
                 getHeaders() {
                     return { 'X-Admin-Token': this.token };
+                },
+
+                async fetchAuth(url, opts = {}) {
+                    const res = await fetch(url, { ...opts, headers: { ...opts.headers, ...this.getHeaders() } });
+                    if (res.status === 401) {
+                        this.token = '';
+                        this.loggedIn = false;
+                        localStorage.removeItem('admin_token');
+                        throw new Error('unauthorized');
+                    }
+                    return res;
+                },
+
+                async tryAutoLogin() {
+                    try {
+                        const res = await this.fetchAuth('/admin/api/stats');
+                        if (!res.ok) throw new Error('fail');
+                        this.loggedIn = true;
+                        await this.loadAll();
+                    } catch (e) {
+                        this.loggedIn = false;
+                    }
                 },
 
                 async login() {
@@ -338,7 +360,6 @@
                 },
 
                 async loadAll() {
-                    this.loggedIn = true;
                     await Promise.all([this.loadStats(), this.loadServerInfo(), this.loadImages()]);
                 },
 
@@ -351,7 +372,7 @@
 
                 async loadStats() {
                     try {
-                        const res = await fetch('/admin/api/stats', { headers: this.getHeaders() });
+                        const res = await this.fetchAuth('/admin/api/stats');
                         this.stats = await res.json();
                         this.recycleCount = this.stats?.recycled || 0;
                     } catch (e) { console.error(e); }
@@ -359,7 +380,7 @@
 
                 async loadServerInfo() {
                     try {
-                        const res = await fetch('/admin/api/info', { headers: this.getHeaders() });
+                        const res = await this.fetchAuth('/admin/api/info');
                         this.serverInfo = await res.json();
                     } catch (e) { console.error(e); }
                 },
@@ -372,7 +393,7 @@
                             size: this.size,
                             ...Object.fromEntries(Object.entries(this.filters).filter(([_, v]) => v))
                         });
-                        const res = await fetch(`/admin/api/images?${params}`, { headers: this.getHeaders() });
+                        const res = await this.fetchAuth(`/admin/api/images?${params}`);
                         const data = await res.json();
                         this.images = data.images;
                         this.total = data.total;
@@ -384,7 +405,7 @@
                 async loadRecycle() {
                     this.recycleLoading = true;
                     try {
-                        const res = await fetch(`/admin/api/recycle?page=${this.recyclePage}&size=${this.size}`, { headers: this.getHeaders() });
+                        const res = await this.fetchAuth(`/admin/api/recycle?page=${this.recyclePage}&size=${this.size}`);
                         const data = await res.json();
                         this.recycleImages = data.images;
                         this.recycleTotal = data.total;
@@ -395,7 +416,7 @@
 
                 async loadSettings() {
                     try {
-                        const res = await fetch('/admin/api/settings', { headers: this.getHeaders() });
+                        const res = await this.fetchAuth('/admin/api/settings');
                         const data = await res.json();
                         this.settingsForm = {
                             image_dir: data.image_dir || '',
@@ -416,11 +437,7 @@
                         if (this.settingsForm.admin_password) body.append('admin_password', this.settingsForm.admin_password);
                         if (this.settingsForm.max_file_size_mb) body.append('max_file_size_mb', this.settingsForm.max_file_size_mb);
 
-                        const res = await fetch('/admin/api/settings', {
-                            method: 'POST',
-                            headers: this.getHeaders(),
-                            body: body
-                        });
+                        const res = await this.fetchAuth('/admin/api/settings', { method: 'POST', body });
                         if (res.ok) {
                             this.settingsSaved = true;
                             setTimeout(() => { this.settingsSaved = false; }, 3000);
@@ -445,9 +462,8 @@
                     formData.append('reason', this.replaceReason);
 
                     try {
-                        const res = await fetch(`/admin/api/images/${this.currentImage.id}/replace`, {
+                        const res = await this.fetchAuth(`/admin/api/images/${this.currentImage.id}/replace`, {
                             method: 'POST',
-                            headers: this.getHeaders(),
                             body: formData
                         });
                         if (res.ok) {
@@ -462,10 +478,7 @@
                 async recycleImage(id) {
                     if (!confirm('确定删除此图片？将移入回收站保留7天。')) return;
                     try {
-                        const res = await fetch(`/admin/api/images/${id}/recycle`, {
-                            method: 'POST',
-                            headers: this.getHeaders()
-                        });
+                        const res = await this.fetchAuth(`/admin/api/images/${id}/recycle`, { method: 'POST' });
                         if (res.ok) {
                             this.loadAll();
                         } else {
@@ -477,10 +490,7 @@
                 async restoreImage(id) {
                     if (!confirm('确定还原此图片？')) return;
                     try {
-                        const res = await fetch(`/admin/api/recycle/${id}/restore`, {
-                            method: 'POST',
-                            headers: this.getHeaders()
-                        });
+                        const res = await this.fetchAuth(`/admin/api/recycle/${id}/restore`, { method: 'POST' });
                         if (res.ok) {
                             this.loadRecycle();
                             this.loadStats();
@@ -493,10 +503,7 @@
                 async permanentDelete(id) {
                     if (!confirm('确定永久删除此图片？此操作不可恢复！')) return;
                     try {
-                        const res = await fetch(`/admin/api/recycle/${id}/permanent`, {
-                            method: 'DELETE',
-                            headers: this.getHeaders()
-                        });
+                        const res = await this.fetchAuth(`/admin/api/recycle/${id}/permanent`, { method: 'DELETE' });
                         if (res.ok) {
                             this.loadRecycle();
                             this.loadStats();
