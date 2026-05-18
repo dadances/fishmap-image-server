@@ -60,6 +60,7 @@
         .settings-panel .form-group { margin-bottom: 16px; }
         .settings-panel label { display: block; margin-bottom: 6px; font-weight: 500; color: #333; }
         .settings-panel input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .settings-panel select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
         .settings-panel .btn-save { padding: 10px 24px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .settings-panel .success { color: #52c41a; margin-top: 12px; }
 
@@ -70,6 +71,8 @@
         .modal-content { background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; }
         .modal-content h3 { margin-bottom: 16px; }
         .modal-content input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; }
+        .modal-content select { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 4px; }
+        .modal-content label { display: block; margin-top: 8px; font-weight: 500; color: #333; font-size: 13px; }
         .modal-content .btn-group { display: flex; gap: 12px; margin-top: 16px; }
         .modal-content .btn-group button { flex: 1; padding: 10px; border: none; border-radius: 4px; cursor: pointer; }
         .btn-primary { background: #1890ff; color: white; }
@@ -155,6 +158,7 @@
                                 <option value="replaced">已替换</option>
                             </select>
                             <button @click="loadImages()">搜索</button>
+                            <button style="background:#52c41a;margin-left:8px" @click="openUpload()">＋ 上传图片</button>
                         </div>
 
                         <div class="image-grid">
@@ -272,6 +276,37 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="modal" x-show="showUploadModal" @click.self="showUploadModal = false">
+                    <div class="modal-content">
+                        <h3>上传图片</h3>
+                        <div class="form-group">
+                            <label>选择图片</label>
+                            <input type="file" @change="uploadFile = $event.target.files[0]" accept="image/*">
+                        </div>
+                        <div class="form-group">
+                            <label>用户UID</label>
+                            <input type="text" x-model="uploadForm.uid" placeholder="user_001">
+                        </div>
+                        <div class="form-group">
+                            <label>图片类型</label>
+                            <select x-model="uploadForm.type">
+                                <option value="avatar">头像</option>
+                                <option value="fishing_spot">钓点</option>
+                                <option value="catch">渔获</option>
+                            </select>
+                        </div>
+                        <div class="form-group" x-show="uploadForm.type === 'fishing_spot'">
+                            <label>钓点ID</label>
+                            <input type="text" x-model="uploadForm.spot_id" placeholder="spot_101">
+                        </div>
+                        <div class="success" x-show="uploadResult" x-text="uploadResult" style="margin-bottom:12px"></div>
+                        <div class="btn-group">
+                            <button class="btn-cancel" @click="showUploadModal = false">取消</button>
+                            <button class="btn-primary" @click="confirmUpload()">确认上传</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </template>
     </div>
@@ -298,6 +333,10 @@
                 currentImage: null,
                 replaceFile: null,
                 replaceReason: '不符合平台规范',
+                showUploadModal: false,
+                uploadFile: null,
+                uploadForm: { uid: 'test_user', type: 'avatar', spot_id: '' },
+                uploadResult: '',
                 settingsForm: { image_dir: '', db_path: '', admin_user: '', admin_password: '', max_file_size_mb: 20 },
                 settingsSaved: false,
                 recycleImages: [],
@@ -516,6 +555,44 @@
                             alert('删除失败');
                         }
                     } catch (e) { alert('网络错误'); }
+                },
+
+                openUpload() {
+                    this.showUploadModal = true;
+                    this.uploadFile = null;
+                    this.uploadForm = { uid: 'test_user', type: 'avatar', spot_id: '' };
+                    this.uploadResult = '';
+                },
+
+                async confirmUpload() {
+                    if (!this.uploadFile) {
+                        alert('请选择图片');
+                        return;
+                    }
+                    const formData = new FormData();
+                    formData.append('file', this.uploadFile);
+                    formData.append('uid', this.uploadForm.uid);
+                    formData.append('type', this.uploadForm.type);
+                    if (this.uploadForm.spot_id) formData.append('spot_id', this.uploadForm.spot_id);
+
+                    try {
+                        const res = await fetch('/api/upload', {
+                            method: 'POST',
+                            headers: { 'X-API-Secret': 'fishmap' },
+                            body: formData
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.uploadResult = `上传成功！ID: ${data.id}`;
+                            this.showUploadModal = false;
+                            this.loadAll();
+                        } else {
+                            const err = await res.json();
+                            this.uploadResult = `上传失败: ${err.detail}`;
+                        }
+                    } catch (e) {
+                        this.uploadResult = '网络错误';
+                    }
                 },
 
                 async restoreImage(id) {
