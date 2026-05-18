@@ -274,3 +274,21 @@ async def update_settings(
     settings.save_config(**updates)
 
     return {"success": True, "message": "Settings updated"}
+
+
+@router.post("/restart")
+async def restart_service(
+    request: Request,
+    _: None = Depends(verify_admin),
+):
+    import subprocess
+
+    def _restart():
+        import time
+        time.sleep(1)
+        subprocess.run(["systemctl", "restart", "fishmap"], capture_output=True)
+
+    import threading
+    threading.Thread(target=_restart, daemon=True).start()
+
+    return {"success": True, "message": "Service restarting..."}
