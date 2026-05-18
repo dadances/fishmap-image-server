@@ -26,6 +26,11 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.BACKUP_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.IMAGE_DIR, "recycle"), exist_ok=True)
     init_db()
+    from app.services.image_service import cleanup_orphan_files, cleanup_expired_recycle
+    orph = cleanup_orphan_files()
+    exp = cleanup_expired_recycle()
+    if orph or exp:
+        print(f"Startup cleanup: {orph} orphan files, {exp} expired recycle")
 
     app.mount("/images", StaticFiles(directory=settings.IMAGE_DIR), name="images")
     app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")

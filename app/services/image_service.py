@@ -53,7 +53,15 @@ def backup_image(file_id: str, ext: str):
 
 def replace_image(file_id: str, ext: str, new_bytes: bytes):
     ensure_dirs()
-    backup_image(file_id, ext)
+    all_exts = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
+    # Backup then remove ALL existing files with this id (clean up orphans from extension changes)
+    for existing_ext in all_exts:
+        existing_path = os.path.join(settings.IMAGE_DIR, f"{file_id}{existing_ext}")
+        if os.path.exists(existing_path):
+            backup_image(file_id, existing_ext)
+            if existing_ext != ext:
+                os.remove(existing_path)
+    # Write new file (if same extension, it was backed up but kept for overwrite)
     file_path = os.path.join(settings.IMAGE_DIR, f"{file_id}{ext}")
     with open(file_path, "wb") as f:
         f.write(new_bytes)
@@ -61,27 +69,32 @@ def replace_image(file_id: str, ext: str, new_bytes: bytes):
 
 def recycle_image(file_id: str, ext: str):
     ensure_dirs()
-    src = os.path.join(settings.IMAGE_DIR, f"{file_id}{ext}")
     recycle_dir = os.path.join(settings.IMAGE_DIR, "recycle")
-    if os.path.exists(src):
-        dst = os.path.join(recycle_dir, f"{file_id}{ext}")
-        shutil.move(src, dst)
+    # Move ALL files with this id (any extension) to recycle
+    for existing_ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']:
+        src = os.path.join(settings.IMAGE_DIR, f"{file_id}{existing_ext}")
+        if os.path.exists(src):
+            dst = os.path.join(recycle_dir, f"{file_id}{existing_ext}")
+            shutil.move(src, dst)
 
 
 def restore_image(file_id: str, ext: str):
     ensure_dirs()
     recycle_dir = os.path.join(settings.IMAGE_DIR, "recycle")
-    src = os.path.join(recycle_dir, f"{file_id}{ext}")
-    dst = os.path.join(settings.IMAGE_DIR, f"{file_id}{ext}")
-    if os.path.exists(src):
-        shutil.move(src, dst)
+    # Move ALL files back from recycle
+    for existing_ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']:
+        src = os.path.join(recycle_dir, f"{file_id}{existing_ext}")
+        if os.path.exists(src):
+            dst = os.path.join(settings.IMAGE_DIR, f"{file_id}{existing_ext}")
+            shutil.move(src, dst)
 
 
 def permanent_delete(file_id: str, ext: str):
     recycle_dir = os.path.join(settings.IMAGE_DIR, "recycle")
-    src = os.path.join(recycle_dir, f"{file_id}{ext}")
-    if os.path.exists(src):
-        os.remove(src)
+    for existing_ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']:
+        src = os.path.join(recycle_dir, f"{file_id}{existing_ext}")
+        if os.path.exists(src):
+            os.remove(src)
 
 
 def create_image_record(
@@ -237,6 +250,25 @@ def cleanup_expired_recycle():
         conn.commit()
         conn.close()
     return len(expired)
+
+
+def cleanup_orphan_files() -> int:
+    conn = get_connection()
+    rows = conn.execute("SELECT id, mime_type FROM images WHERE status != 'recycled'").fetchall()
+    valid_files = set()
+    for r in rows:
+        ext = get_file_extension(r["mime_type"])
+        valid_files.add(f"{r['id']}{ext}")
+    conn.close()
+
+    removed = 0
+    for filename in os.listdir(settings.IMAGE_DIR):
+        filepath = os.path.join(settings.IMAGE_DIR, filename)
+        if os.path.isfile(filepath) and filename not in valid_files:
+            if not filename.startswith('.'):
+                os.remove(filepath)
+                removed += 1
+    return removed
 
 
 def get_stats() -> dict:

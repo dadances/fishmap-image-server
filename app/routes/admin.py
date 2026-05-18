@@ -291,3 +291,13 @@ async def restart_service(
     threading.Thread(target=_restart, daemon=True).start()
 
     return {"success": True, "message": "Service restarting..."}
+
+
+@router.post("/cleanup")
+async def cleanup_files(
+    request: Request,
+    _: None = Depends(verify_admin),
+):
+    orphan = image_service.cleanup_orphan_files()
+    expired = image_service.cleanup_expired_recycle()
+    return {"success": True, "orphan_removed": orphan, "expired_cleaned": expired}
