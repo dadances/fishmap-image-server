@@ -4,7 +4,7 @@ services:
   app:
     build: .
     ports:
-      - "2026:2026"
+      - "2000:2000"
     volumes:
       - ./data/fishmap:/data/fishmap
     environment:

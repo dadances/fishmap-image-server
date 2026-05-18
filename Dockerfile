@@ -15,6 +15,6 @@ COPY . .
 
 RUN mkdir -p /data/fishmap/images/backup /data/fishmap/images/recycle /data/fishmap/db
 
-EXPOSE 2026
+EXPOSE 2000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "2026"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "2000"]

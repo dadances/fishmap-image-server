@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ADMIN_USER: str = os.environ.get("ADMIN_USER", "admin")
     ADMIN_PASSWORD: str = os.environ.get("ADMIN_PASSWORD", "fishmap2024")
 
-    PORT: int = 2026
+    PORT: int = 2000
 
     CONFIG_FILE: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "config.json")
 
