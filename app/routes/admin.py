@@ -1,4 +1,6 @@
 import uuid
+import os
+import json
 from typing import Optional, Dict
 from fastapi import APIRouter, UploadFile, File, HTTPException, Request, Depends
 from app.config import settings
@@ -143,3 +145,49 @@ async def get_server_info(_: None = Depends(verify_admin)):
         port=settings.PORT,
         test_url=f"http://{local_ip}:{settings.PORT}",
     )
+
+
+@router.get("/settings")
+async def get_settings(_: None = Depends(verify_admin)):
+    return {
+        "image_dir": settings.IMAGE_DIR,
+        "db_path": settings.DB_PATH,
+        "admin_user": settings.ADMIN_USER,
+        "max_file_size_mb": settings.MAX_FILE_SIZE // (1024 * 1024),
+    }
+
+
+@router.post("/settings")
+async def update_settings(
+    request: Request,
+    image_dir: Optional[str] = None,
+    db_path: Optional[str] = None,
+    admin_user: Optional[str] = None,
+    admin_password: Optional[str] = None,
+    max_file_size_mb: Optional[int] = None,
+    _: None = Depends(verify_admin),
+):
+    updates = {}
+    if image_dir is not None:
+        updates["IMAGE_DIR"] = image_dir
+        settings.IMAGE_DIR = image_dir
+        settings.BACKUP_DIR = os.path.join(image_dir, "backup")
+        os.makedirs(image_dir, exist_ok=True)
+        os.makedirs(settings.BACKUP_DIR, exist_ok=True)
+    if db_path is not None:
+        updates["DB_PATH"] = db_path
+        settings.DB_PATH = db_path
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    if admin_user is not None:
+        updates["ADMIN_USER"] = admin_user
+        settings.ADMIN_USER = admin_user
+    if admin_password is not None:
+        updates["ADMIN_PASSWORD"] = admin_password
+        settings.ADMIN_PASSWORD = admin_password
+    if max_file_size_mb is not None:
+        updates["MAX_FILE_SIZE"] = max_file_size_mb * 1024 * 1024
+        settings.MAX_FILE_SIZE = max_file_size_mb * 1024 * 1024
+
+    settings.save_config(**updates)
+
+    return {"success": True, "message": "Settings updated"}

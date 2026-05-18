@@ -26,6 +26,10 @@ def get_file_extension(mime_type: str) -> str:
     return ext_map.get(mime_type, ".jpg")
 
 
+def get_image_url(file_id: str, ext: str) -> str:
+    return f"/images/{file_id}{ext}"
+
+
 def save_image(file_bytes: bytes, file_id: str, ext: str) -> str:
     ensure_dirs()
     file_path = os.path.join(settings.IMAGE_DIR, f"{file_id}{ext}")
@@ -81,14 +85,22 @@ def create_image_record(
     conn.commit()
     row = cursor.execute("SELECT * FROM images WHERE id = ?", (file_id,)).fetchone()
     conn.close()
-    return dict(row)
+    result = dict(row)
+    ext = get_file_extension(result["mime_type"])
+    result["image_url"] = get_image_url(file_id, ext)
+    return result
 
 
 def get_image_by_id(file_id: str) -> Optional[dict]:
     conn = get_connection()
     row = conn.execute("SELECT * FROM images WHERE id = ?", (file_id,)).fetchone()
     conn.close()
-    return dict(row) if row else None
+    if row:
+        result = dict(row)
+        ext = get_file_extension(result["mime_type"])
+        result["image_url"] = get_image_url(file_id, ext)
+        return result
+    return None
 
 
 def list_images(
@@ -130,7 +142,13 @@ def list_images(
     ).fetchall()
 
     conn.close()
-    return [dict(r) for r in rows], total
+    results = []
+    for r in rows:
+        result = dict(r)
+        ext = get_file_extension(result["mime_type"])
+        result["image_url"] = get_image_url(result["id"], ext)
+        results.append(result)
+    return results, total
 
 
 def update_image_status(
@@ -144,7 +162,12 @@ def update_image_status(
     conn.commit()
     row = conn.execute("SELECT * FROM images WHERE id = ?", (file_id,)).fetchone()
     conn.close()
-    return dict(row) if row else None
+    if row:
+        result = dict(row)
+        ext = get_file_extension(result["mime_type"])
+        result["image_url"] = get_image_url(file_id, ext)
+        return result
+    return None
 
 
 def get_stats() -> dict:

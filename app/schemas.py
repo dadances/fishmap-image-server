@@ -20,6 +20,7 @@ class ImageInfo(BaseModel):
     status: str
     replace_reason: Optional[str] = None
     client_ip: Optional[str] = None
+    image_url: Optional[str] = None
     created_at: str
     updated_at: str
 

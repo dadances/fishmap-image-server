@@ -1,5 +1,6 @@
 import os
 import socket
+import json
 from pydantic_settings import BaseSettings
 
 
@@ -16,7 +17,9 @@ class Settings(BaseSettings):
     ADMIN_USER: str = os.environ.get("ADMIN_USER", "admin")
     ADMIN_PASSWORD: str = os.environ.get("ADMIN_PASSWORD", "fishmap2024")
 
-    PORT: int = 8000
+    PORT: int = 2026
+
+    CONFIG_FILE: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "config.json")
 
     def get_local_ip(self) -> str:
         try:
@@ -28,8 +31,33 @@ class Settings(BaseSettings):
         finally:
             s.close()
 
+    def save_config(self, **kwargs):
+        config = {}
+        if os.path.exists(self.CONFIG_FILE):
+            with open(self.CONFIG_FILE, "r") as f:
+                config = json.load(f)
+        config.update(kwargs)
+        os.makedirs(os.path.dirname(self.CONFIG_FILE), exist_ok=True)
+        with open(self.CONFIG_FILE, "w") as f:
+            json.dump(config, f, indent=2)
+
+    def load_config(self):
+        if os.path.exists(self.CONFIG_FILE):
+            with open(self.CONFIG_FILE, "r") as f:
+                config = json.load(f)
+            if "ADMIN_USER" in config:
+                self.ADMIN_USER = config["ADMIN_USER"]
+            if "ADMIN_PASSWORD" in config:
+                self.ADMIN_PASSWORD = config["ADMIN_PASSWORD"]
+            if "IMAGE_DIR" in config:
+                self.IMAGE_DIR = config["IMAGE_DIR"]
+                self.BACKUP_DIR = os.path.join(config["IMAGE_DIR"], "backup")
+            if "DB_PATH" in config:
+                self.DB_PATH = config["DB_PATH"]
+
     class Config:
         env_file = ".env"
 
 
 settings = Settings()
+settings.load_config()
