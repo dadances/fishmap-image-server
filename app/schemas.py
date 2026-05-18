@@ -20,6 +20,7 @@ class ImageInfo(BaseModel):
     status: str
     replace_reason: Optional[str] = None
     client_ip: Optional[str] = None
+    deleted_at: Optional[str] = None
     image_url: Optional[str] = None
     created_at: str
     updated_at: str
@@ -36,7 +37,7 @@ class StatsResponse(BaseModel):
     total: int
     active: int
     replaced: int
-    deleted: int
+    recycled: int
     by_type: Dict[str, int]
 
 

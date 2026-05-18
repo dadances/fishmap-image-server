@@ -12,9 +12,12 @@ import os
 async def lifespan(app: FastAPI):
     os.makedirs(settings.IMAGE_DIR, exist_ok=True)
     os.makedirs(settings.BACKUP_DIR, exist_ok=True)
+    os.makedirs(os.path.join(settings.IMAGE_DIR, "recycle"), exist_ok=True)
     init_db()
+
     app.mount("/images", StaticFiles(directory=settings.IMAGE_DIR), name="images")
     app.mount("/admin", StaticFiles(directory="admin", html=True), name="admin")
+
     yield
 
 

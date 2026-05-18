@@ -32,6 +32,7 @@ def init_db():
             status TEXT DEFAULT 'active',
             replace_reason TEXT,
             client_ip TEXT,
+            deleted_at TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
         )
@@ -43,6 +44,13 @@ def init_db():
             created_at TEXT DEFAULT (datetime('now')),
             expires_at TEXT
         )
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_images_status ON images(status)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_images_deleted_at ON images(deleted_at)
     """)
 
     conn.commit()

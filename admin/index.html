@@ -17,11 +17,12 @@
         .login-box button:hover { background: #40a9ff; }
         .error { color: #ff4d4f; text-align: center; margin-top: 10px; }
 
-        .header { background: white; padding: 16px 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .header { background: white; padding: 16px 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
         .header h1 { font-size: 20px; }
-        .header nav { display: flex; gap: 12px; }
-        .header nav button { padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; }
+        .header nav { display: flex; gap: 8px; flex-wrap: wrap; }
+        .header nav button { padding: 8px 16px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; font-size: 14px; }
         .header nav button.active { background: #1890ff; color: white; border-color: #1890ff; }
+        .header nav button .badge { background: #ff4d4f; color: white; border-radius: 10px; padding: 1px 6px; font-size: 11px; margin-left: 4px; }
 
         .server-info { background: #e6f7ff; padding: 10px 16px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; }
         .server-info code { background: #fff; padding: 2px 6px; border-radius: 3px; }
@@ -43,13 +44,16 @@
         .image-card .info .uid { color: #1890ff; }
         .image-card .info .status-active { color: #52c41a; }
         .image-card .info .status-replaced { color: #faad14; }
-        .image-card .info .status-deleted { color: #ff4d4f; }
+        .image-card .info .status-recycled { color: #ff4d4f; }
         .image-card .info .url { color: #999; word-break: break-all; font-size: 11px; background: #f9f9f9; padding: 4px 6px; border-radius: 3px; margin-top: 4px; }
+        .image-card .info .expire { color: #ff4d4f; font-weight: 500; }
         .image-card .actions { padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; gap: 8px; }
         .image-card .actions button { flex: 1; padding: 6px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
         .btn-replace { background: #faad14; color: white; }
         .btn-delete { background: #ff4d4f; color: white; }
         .btn-copy { background: #1890ff; color: white; }
+        .btn-restore { background: #52c41a; color: white; }
+        .btn-perm-delete { background: #a8071a; color: white; }
 
         .settings-panel { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
         .settings-panel h3 { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; }
@@ -58,6 +62,9 @@
         .settings-panel input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
         .settings-panel .btn-save { padding: 10px 24px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         .settings-panel .success { color: #52c41a; margin-top: 12px; }
+
+        .recycle-notice { background: #fff7e6; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; border-left: 4px solid #faad14; }
+        .recycle-notice p { color: #8c6c0a; font-size: 14px; }
 
         .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; }
@@ -74,7 +81,7 @@
         .pagination button.active { background: #1890ff; color: white; border-color: #1890ff; }
 
         .loading { text-align: center; padding: 40px; color: #999; }
-        .hidden { display: none; }
+        .empty { text-align: center; padding: 60px 20px; color: #999; }
     </style>
 </head>
 <body>
@@ -94,8 +101,15 @@
                 <div class="header">
                     <h1>钓鱼地图 - 图片管理后台</h1>
                     <nav>
-                        <button :class="{ active: tab === 'images' }" @click="tab = 'images'; loadImages()">图片管理</button>
-                        <button :class="{ active: tab === 'settings' }" @click="tab = 'settings'; loadSettings()">系统设置</button>
+                        <button :class="{ active: tab === 'images' }" @click="switchTab('images')">
+                            图片管理
+                        </button>
+                        <button :class="{ active: tab === 'recycle' }" @click="switchTab('recycle')">
+                            回收站<span class="badge" x-show="recycleCount > 0" x-text="recycleCount"></span>
+                        </button>
+                        <button :class="{ active: tab === 'settings' }" @click="switchTab('settings')">
+                            系统设置
+                        </button>
                     </nav>
                 </div>
 
@@ -121,8 +135,8 @@
                                 <div class="label">已替换</div>
                             </div>
                             <div class="stat-card">
-                                <div class="num" x-text="stats?.deleted"></div>
-                                <div class="label">已删除</div>
+                                <div class="num" style="color:#ff4d4f" x-text="stats?.recycled"></div>
+                                <div class="label">回收站</div>
                             </div>
                         </div>
 
@@ -139,7 +153,6 @@
                                 <option value="">全部状态</option>
                                 <option value="active">正常</option>
                                 <option value="replaced">已替换</option>
-                                <option value="deleted">已删除</option>
                             </select>
                             <button @click="loadImages()">搜索</button>
                         </div>
@@ -147,7 +160,7 @@
                         <div class="image-grid">
                             <template x-for="img in images" :key="img.id">
                                 <div class="image-card">
-                                    <img :src="img.image_url" alt="">
+                                    <img :src="img.image_url" :alt="img.id" @error="$el.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22280%22 height=%22180%22><rect fill=%22%23f0f0f0%22 width=%22280%22 height=%22180%22/><text x=%2250%25%22 y=%2250%25%22 fill=%22%23999%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2214%22>图片已删除</text></svg>'">
                                     <div class="info">
                                         <div>UID: <span class="uid" x-text="img.uid"></span></div>
                                         <div>类型: <span x-text="typeLabel(img.type)"></span></div>
@@ -161,18 +174,58 @@
                                     <div class="actions">
                                         <button class="btn-copy" @click="copyUrl(img)">复制链接</button>
                                         <button class="btn-replace" @click="openReplace(img)">替换</button>
-                                        <button class="btn-delete" @click="deleteImage(img.id)">删除</button>
+                                        <button class="btn-delete" @click="recycleImage(img.id)">删除</button>
                                     </div>
                                 </div>
                             </template>
                         </div>
 
+                        <div class="empty" x-show="!loading && images.length === 0">暂无图片</div>
                         <div class="loading" x-show="loading">加载中...</div>
 
                         <div class="pagination" x-show="totalPages > 1">
                             <button @click="page--; loadImages()" :disabled="page <= 1">上一页</button>
                             <span style="padding: 8px" x-text="page + ' / ' + totalPages"></span>
                             <button @click="page++; loadImages()" :disabled="page >= totalPages">下一页</button>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="tab === 'recycle'">
+                    <div>
+                        <div class="recycle-notice">
+                            <p>回收站中的图片保留 <strong>7天</strong>，过期后将永久删除。您可以还原或立即永久删除。</p>
+                        </div>
+
+                        <div class="image-grid">
+                            <template x-for="img in recycleImages" :key="img.id">
+                                <div class="image-card">
+                                    <img :src="img.image_url" :alt="img.id" @error="$el.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22280%22 height=%22180%22><rect fill=%22%23f0f0f0%22 width=%22280%22 height=%22180%22/><text x=%2250%25%22 y=%2250%25%22 fill=%22%23999%22 text-anchor=%22middle%22 dy=%22.3em%22 font-size=%2214%22>文件已不存在</text></svg>'">
+                                    <div class="info">
+                                        <div>UID: <span class="uid" x-text="img.uid"></span></div>
+                                        <div>类型: <span x-text="typeLabel(img.type)"></span></div>
+                                        <div x-show="img.spot_id">钓点: <span x-text="img.spot_id"></span></div>
+                                        <div>删除时间: <span x-text="img.deleted_at"></span></div>
+                                        <div class="expire" x-show="img.deleted_at">
+                                            剩余: <span x-text="daysLeft(img.deleted_at)"></span> 天
+                                        </div>
+                                        <div x-show="img.replace_reason" style="color:#ff4d4f" x-text="img.replace_reason"></div>
+                                    </div>
+                                    <div class="actions">
+                                        <button class="btn-restore" @click="restoreImage(img.id)">还原</button>
+                                        <button class="btn-perm-delete" @click="permanentDelete(img.id)">永久删除</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="empty" x-show="!recycleLoading && recycleImages.length === 0">回收站为空</div>
+                        <div class="loading" x-show="recycleLoading">加载中...</div>
+
+                        <div class="pagination" x-show="recycleTotalPages > 1">
+                            <button @click="recyclePage--; loadRecycle()" :disabled="recyclePage <= 1">上一页</button>
+                            <span style="padding: 8px" x-text="recyclePage + ' / ' + recycleTotalPages"></span>
+                            <button @click="recyclePage++; loadRecycle()" :disabled="recyclePage >= recycleTotalPages">下一页</button>
                         </div>
                     </div>
                 </template>
@@ -245,6 +298,12 @@
                 replaceReason: '不符合平台规范',
                 settingsForm: { image_dir: '', db_path: '', admin_user: '', admin_password: '', max_file_size_mb: 20 },
                 settingsSaved: false,
+                recycleImages: [],
+                recyclePage: 1,
+                recycleTotal: 0,
+                recycleTotalPages: 1,
+                recycleLoading: false,
+                recycleCount: 0,
 
                 init() {
                     if (this.token) {
@@ -283,10 +342,18 @@
                     await Promise.all([this.loadStats(), this.loadServerInfo(), this.loadImages()]);
                 },
 
+                switchTab(newTab) {
+                    this.tab = newTab;
+                    if (newTab === 'images') this.loadImages();
+                    if (newTab === 'recycle') this.loadRecycle();
+                    if (newTab === 'settings') this.loadSettings();
+                },
+
                 async loadStats() {
                     try {
                         const res = await fetch('/admin/api/stats', { headers: this.getHeaders() });
                         this.stats = await res.json();
+                        this.recycleCount = this.stats?.recycled || 0;
                     } catch (e) { console.error(e); }
                 },
 
@@ -312,6 +379,18 @@
                         this.totalPages = Math.ceil(this.total / this.size);
                     } catch (e) { console.error(e); }
                     this.loading = false;
+                },
+
+                async loadRecycle() {
+                    this.recycleLoading = true;
+                    try {
+                        const res = await fetch(`/admin/api/recycle?page=${this.recyclePage}&size=${this.size}`, { headers: this.getHeaders() });
+                        const data = await res.json();
+                        this.recycleImages = data.images;
+                        this.recycleTotal = data.total;
+                        this.recycleTotalPages = Math.ceil(this.recycleTotal / this.size);
+                    } catch (e) { console.error(e); }
+                    this.recycleLoading = false;
                 },
 
                 async loadSettings() {
@@ -380,15 +459,47 @@
                     } catch (e) { alert('网络错误'); }
                 },
 
-                async deleteImage(id) {
-                    if (!confirm('确定删除此图片？')) return;
+                async recycleImage(id) {
+                    if (!confirm('确定删除此图片？将移入回收站保留7天。')) return;
                     try {
-                        const res = await fetch(`/admin/api/images/${id}`, {
-                            method: 'DELETE',
+                        const res = await fetch(`/admin/api/images/${id}/recycle`, {
+                            method: 'POST',
                             headers: this.getHeaders()
                         });
                         if (res.ok) {
                             this.loadAll();
+                        } else {
+                            alert('删除失败');
+                        }
+                    } catch (e) { alert('网络错误'); }
+                },
+
+                async restoreImage(id) {
+                    if (!confirm('确定还原此图片？')) return;
+                    try {
+                        const res = await fetch(`/admin/api/recycle/${id}/restore`, {
+                            method: 'POST',
+                            headers: this.getHeaders()
+                        });
+                        if (res.ok) {
+                            this.loadRecycle();
+                            this.loadStats();
+                        } else {
+                            alert('还原失败');
+                        }
+                    } catch (e) { alert('网络错误'); }
+                },
+
+                async permanentDelete(id) {
+                    if (!confirm('确定永久删除此图片？此操作不可恢复！')) return;
+                    try {
+                        const res = await fetch(`/admin/api/recycle/${id}/permanent`, {
+                            method: 'DELETE',
+                            headers: this.getHeaders()
+                        });
+                        if (res.ok) {
+                            this.loadRecycle();
+                            this.loadStats();
                         } else {
                             alert('删除失败');
                         }
@@ -411,8 +522,16 @@
                 },
 
                 statusLabel(status) {
-                    const map = { active: '正常', replaced: '已替换', deleted: '已删除' };
+                    const map = { active: '正常', replaced: '已替换', recycled: '已删除' };
                     return map[status] || status;
+                },
+
+                daysLeft(deletedAt) {
+                    if (!deletedAt) return 7;
+                    const deleted = new Date(deletedAt + 'Z');
+                    const now = new Date();
+                    const diff = 7 - Math.floor((now - deleted) / (1000 * 60 * 60 * 24));
+                    return Math.max(0, diff);
                 }
             };
         }

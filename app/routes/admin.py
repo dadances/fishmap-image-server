@@ -43,6 +43,64 @@ async def list_images(
     return ImageListResponse(images=[ImageInfo(**img) for img in images], total=total, page=page, size=size)
 
 
+@router.get("/recycle")
+async def get_recycle_bin(
+    request: Request,
+    page: int = 1,
+    size: int = 20,
+    _: None = Depends(verify_admin),
+):
+    images, total = image_service.get_recycle_bin(page=page, size=size)
+    return {"images": images, "total": total, "page": page, "size": size}
+
+
+@router.post("/recycle/{image_id}/restore")
+async def restore_image(
+    image_id: str,
+    request: Request,
+    _: None = Depends(verify_admin),
+):
+    record = image_service.get_image_by_id(image_id)
+    if not record or record["status"] != "recycled":
+        raise HTTPException(status_code=404, detail="Image not in recycle bin")
+
+    ext = image_service.get_file_extension(record["mime_type"])
+    image_service.restore_image(image_id, ext)
+    image_service.update_image_status(image_id, "active")
+
+    return {"success": True, "message": "Image restored"}
+
+
+@router.delete("/recycle/{image_id}/permanent")
+async def permanent_delete(
+    image_id: str,
+    request: Request,
+    _: None = Depends(verify_admin),
+):
+    record = image_service.get_image_by_id(image_id)
+    if not record or record["status"] != "recycled":
+        raise HTTPException(status_code=404, detail="Image not in recycle bin")
+
+    ext = image_service.get_file_extension(record["mime_type"])
+    image_service.permanent_delete(image_id, ext)
+
+    conn = image_service.get_connection()
+    conn.execute("DELETE FROM images WHERE id = ?", (image_id,))
+    conn.commit()
+    conn.close()
+
+    return {"success": True, "message": "Image permanently deleted"}
+
+
+@router.post("/recycle/cleanup")
+async def cleanup_expired(
+    request: Request,
+    _: None = Depends(verify_admin),
+):
+    count = image_service.cleanup_expired_recycle()
+    return {"success": True, "cleaned": count}
+
+
 @router.post("/images/{image_id}/replace")
 async def replace_image(
     image_id: str,
@@ -114,6 +172,24 @@ def generate_placeholder(reason: str) -> bytes:
     return buf.getvalue()
 
 
+@router.post("/images/{image_id}/recycle")
+async def recycle_image(
+    image_id: str,
+    request: Request,
+    reason: str = "不符合平台规范",
+    _: None = Depends(verify_admin),
+):
+    record = image_service.get_image_by_id(image_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    ext = image_service.get_file_extension(record["mime_type"])
+    image_service.recycle_image(image_id, ext)
+    image_service.update_image_status(image_id, "recycled", reason)
+
+    return {"success": True, "message": "Image moved to recycle bin"}
+
+
 @router.delete("/images/{image_id}")
 async def delete_image(
     image_id: str,
@@ -126,10 +202,10 @@ async def delete_image(
         raise HTTPException(status_code=404, detail="Image not found")
 
     ext = image_service.get_file_extension(record["mime_type"])
-    image_service.delete_image(image_id, ext)
-    image_service.update_image_status(image_id, "deleted", reason)
+    image_service.recycle_image(image_id, ext)
+    image_service.update_image_status(image_id, "recycled", reason)
 
-    return {"success": True, "message": "Image deleted"}
+    return {"success": True, "message": "Image moved to recycle bin"}
 
 
 @router.get("/stats", response_model=StatsResponse)
