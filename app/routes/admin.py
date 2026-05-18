@@ -2,7 +2,7 @@ import uuid
 import os
 import json
 from typing import Optional, Dict
-from fastapi import APIRouter, UploadFile, File, HTTPException, Request, Depends
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request, Depends
 from app.config import settings
 from app.services import image_service
 from app.utils.file_utils import validate_file
@@ -106,7 +106,7 @@ async def replace_image(
     image_id: str,
     request: Request,
     file: UploadFile = File(...),
-    reason: str = File("不符合平台规范"),
+    reason: str = Form("不符合平台规范"),
     _: None = Depends(verify_admin),
 ):
     record = image_service.get_image_by_id(image_id)
@@ -138,7 +138,7 @@ async def replace_image(
 async def replace_with_placeholder(
     image_id: str,
     request: Request,
-    reason: str = "不符合平台规范",
+    reason: str = Form("不符合平台规范"),
     _: None = Depends(verify_admin),
 ):
     record = image_service.get_image_by_id(image_id)
@@ -183,7 +183,7 @@ def generate_placeholder(reason: str) -> bytes:
 async def recycle_image(
     image_id: str,
     request: Request,
-    reason: str = "不符合平台规范",
+    reason: str = Form("不符合平台规范"),
     _: None = Depends(verify_admin),
 ):
     record = image_service.get_image_by_id(image_id)
@@ -201,7 +201,7 @@ async def recycle_image(
 async def delete_image(
     image_id: str,
     request: Request,
-    reason: str = "不符合平台规范",
+    reason: str = Form("不符合平台规范"),
     _: None = Depends(verify_admin),
 ):
     record = image_service.get_image_by_id(image_id)
@@ -243,37 +243,40 @@ async def get_settings(_: None = Depends(verify_admin)):
 @router.post("/settings")
 async def update_settings(
     request: Request,
-    image_dir: Optional[str] = None,
-    db_path: Optional[str] = None,
-    admin_user: Optional[str] = None,
-    admin_password: Optional[str] = None,
-    max_file_size_mb: Optional[int] = None,
+    image_dir: Optional[str] = Form(None),
+    db_path: Optional[str] = Form(None),
+    admin_user: Optional[str] = Form(None),
+    admin_password: Optional[str] = Form(None),
+    max_file_size_mb: Optional[int] = Form(None),
     _: None = Depends(verify_admin),
 ):
     updates = {}
-    if image_dir is not None:
+    if image_dir is not None and image_dir.strip():
         updates["IMAGE_DIR"] = image_dir
         settings.IMAGE_DIR = image_dir
         settings.BACKUP_DIR = os.path.join(image_dir, "backup")
         os.makedirs(image_dir, exist_ok=True)
         os.makedirs(settings.BACKUP_DIR, exist_ok=True)
-    if db_path is not None:
+    if db_path is not None and db_path.strip():
         updates["DB_PATH"] = db_path
         settings.DB_PATH = db_path
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    if admin_user is not None:
+        from app.database import init_db
+        init_db()
+    if admin_user is not None and admin_user.strip():
         updates["ADMIN_USER"] = admin_user
         settings.ADMIN_USER = admin_user
-    if admin_password is not None:
+    if admin_password is not None and admin_password.strip():
         updates["ADMIN_PASSWORD"] = admin_password
         settings.ADMIN_PASSWORD = admin_password
-    if max_file_size_mb is not None:
+        ADMIN_TOKENS.clear()
+    if max_file_size_mb is not None and max_file_size_mb > 0:
         updates["MAX_FILE_SIZE"] = max_file_size_mb * 1024 * 1024
         settings.MAX_FILE_SIZE = max_file_size_mb * 1024 * 1024
 
     settings.save_config(**updates)
 
-    return {"success": True, "message": "Settings updated"}
+    return {"success": True, "message": "Settings updated", "changes": updates}
 
 
 @router.post("/restart")
