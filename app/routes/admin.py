@@ -101,6 +101,15 @@ async def cleanup_expired(
     return {"success": True, "cleaned": count}
 
 
+@router.post("/recycle/clear-all")
+async def clear_all_recycle(
+    request: Request,
+    _: None = Depends(verify_admin),
+):
+    count = image_service.clear_all_recycle()
+    return {"success": True, "cleared": count}
+
+
 @router.post("/images/{image_id}/replace")
 async def replace_image(
     image_id: str,

@@ -98,7 +98,10 @@ def permanent_delete(file_id: str, ext: str):
     for existing_ext in ['.jpg', '.jpeg', '.png', '.webp', '.gif']:
         src = os.path.join(recycle_dir, f"{file_id}{existing_ext}")
         if os.path.exists(src):
-            os.remove(src)
+            try:
+                os.remove(src)
+            except OSError:
+                pass
 
 
 def create_image_record(
@@ -253,12 +256,32 @@ def cleanup_expired_recycle():
     expired = get_expired_recycle()
     for img in expired:
         ext = get_file_extension(img["mime_type"])
-        permanent_delete(img["id"], ext)
+        try:
+            permanent_delete(img["id"], ext)
+        except Exception:
+            pass
         conn = get_connection()
         conn.execute("DELETE FROM images WHERE id = ?", (img["id"],))
         conn.commit()
         conn.close()
     return len(expired)
+
+
+def clear_all_recycle() -> int:
+    conn = get_connection()
+    rows = conn.execute("SELECT id, mime_type FROM images WHERE status = 'recycled'").fetchall()
+    conn.close()
+    for row in rows:
+        ext = get_file_extension(row["mime_type"])
+        try:
+            permanent_delete(row["id"], ext)
+        except Exception:
+            pass
+        conn = get_connection()
+        conn.execute("DELETE FROM images WHERE id = ?", (row["id"],))
+        conn.commit()
+        conn.close()
+    return len(rows)
 
 
 def cleanup_orphan_files() -> int:

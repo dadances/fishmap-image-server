@@ -197,7 +197,13 @@
                 <template x-if="tab === 'recycle'">
                     <div>
                         <div class="recycle-notice">
-                            <p>回收站中的图片保留 <strong>7天</strong>，过期后将永久删除。您可以还原或立即永久删除。</p>
+                            <p>
+                                回收站中的图片保留 <strong>7天</strong>，过期后将永久删除。您可以还原或立即永久删除。
+                                <span style="float:right">
+                                    <button class="btn-save" style="padding:4px 12px;font-size:12px" @click="cleanupExpired()">清理过期</button>
+                                    <button class="btn-save" style="padding:4px 12px;font-size:12px;background:#a8071a;margin-left:8px" @click="clearAllRecycle()">一键清空</button>
+                                </span>
+                            </p>
                         </div>
 
                         <div class="image-grid">
@@ -618,6 +624,28 @@
                             alert('删除失败');
                         }
                     } catch (e) { alert('网络错误'); }
+                },
+
+                async cleanupExpired() {
+                    if (!confirm('确定清理所有过期（超过7天）的回收站图片？')) return;
+                    try {
+                        const res = await this.fetchAuth('/admin/api/recycle/cleanup', { method: 'POST' });
+                        const data = await res.json();
+                        alert(`已清理 ${data.cleaned} 张过期图片`);
+                        this.loadRecycle();
+                        this.loadStats();
+                    } catch (e) { alert('清理失败'); }
+                },
+
+                async clearAllRecycle() {
+                    if (!confirm('确定一键清空回收站？所有图片将被永久删除，无法恢复！')) return;
+                    try {
+                        const res = await this.fetchAuth('/admin/api/recycle/clear-all', { method: 'POST' });
+                        const data = await res.json();
+                        alert(`已清空 ${data.cleared} 张图片`);
+                        this.loadRecycle();
+                        this.loadStats();
+                    } catch (e) { alert('清空失败'); }
                 },
 
                 async copyUrl(img) {
