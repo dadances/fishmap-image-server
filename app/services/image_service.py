@@ -34,6 +34,10 @@ def get_image_url(file_id: str, ext: str, version: int = 1) -> str:
     return f"/images/{file_id}{ext}?v={version}"
 
 
+def get_clean_url(file_id: str, ext: str) -> str:
+    return f"/images/{file_id}{ext}"
+
+
 def save_image(file_bytes: bytes, file_id: str, ext: str) -> str:
     ensure_dirs()
     file_path = os.path.join(settings.IMAGE_DIR, f"{file_id}{ext}")
@@ -122,6 +126,7 @@ def create_image_record(
     result = dict(row)
     ext = get_file_extension(result["mime_type"])
     result["image_url"] = get_image_url(file_id, ext, result.get("version", 1))
+    result["clean_url"] = get_clean_url(file_id, ext)
     return result
 
 
@@ -133,6 +138,7 @@ def get_image_by_id(file_id: str) -> Optional[dict]:
         result = dict(row)
         ext = get_file_extension(result["mime_type"])
         result["image_url"] = get_image_url(file_id, ext, result.get("version", 1))
+        result["clean_url"] = get_clean_url(file_id, ext)
         return result
     return None
 
@@ -181,6 +187,7 @@ def list_images(
         result = dict(r)
         ext = get_file_extension(result["mime_type"])
         result["image_url"] = get_image_url(result["id"], ext, result.get("version", 1))
+        result["clean_url"] = get_clean_url(result["id"], ext)
         results.append(result)
     return results, total
 
@@ -206,6 +213,7 @@ def update_image_status(
         result = dict(row)
         ext = get_file_extension(result["mime_type"])
         result["image_url"] = get_image_url(file_id, ext, result.get("version", 1))
+        result["clean_url"] = get_clean_url(file_id, ext)
         return result
     return None
 
@@ -226,7 +234,8 @@ def get_recycle_bin(page: int = 1, size: int = 20) -> Tuple[List[dict], int]:
     for r in rows:
         result = dict(r)
         ext = get_file_extension(result["mime_type"])
-        result["image_url"] = f"/images/recycle/{result['id']}{ext}"
+        result["image_url"] = f"/images/recycle/{result['id']}{ext}?v={result.get('version', 1)}"
+        result["clean_url"] = f"/images/recycle/{result['id']}{ext}"
         results.append(result)
     return results, total
 

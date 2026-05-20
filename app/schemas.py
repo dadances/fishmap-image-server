@@ -22,6 +22,7 @@ class ImageInfo(BaseModel):
     client_ip: Optional[str] = None
     deleted_at: Optional[str] = None
     image_url: Optional[str] = None
+    clean_url: Optional[str] = None
     created_at: str
     updated_at: str
 
@@ -45,6 +46,7 @@ class ServerInfoResponse(BaseModel):
     local_ip: str
     port: int
     test_url: str
+    public_url: str
 
 
 class LoginRequest(BaseModel):

@@ -55,6 +55,6 @@ async def upload_image(
 
     return UploadResponse(
         id=file_id,
-        url=f"/images/{file_id}{ext}",
+        url=f"{settings.SCHEME}://{settings.DOMAIN}/images/{file_id}{ext}",
         status="active",
     )

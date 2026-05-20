@@ -117,9 +117,8 @@
                 </div>
 
                 <div class="server-info" x-show="serverInfo">
-                    服务器IP: <code x-text="serverInfo?.local_ip"></code> |
-                    端口: <code x-text="serverInfo?.port"></code> |
-                    测试地址: <code x-text="serverInfo?.test_url"></code>
+                    公网地址: <code x-text="serverInfo?.public_url"></code> |
+                    局域网: <code x-text="serverInfo?.test_url"></code>
                 </div>
 
                 <template x-if="tab === 'images'">
@@ -172,7 +171,7 @@
                                         <div>IP: <span x-text="img.client_ip"></span></div>
                                         <div>状态: <span :class="'status-' + img.status" x-text="statusLabel(img.status)"></span></div>
                                         <div x-show="img.replace_reason" style="color:#ff4d4f" x-text="img.replace_reason"></div>
-                                        <div class="url" x-text="serverInfo?.test_url + img.image_url"></div>
+                                        <div class="url" x-text="serverInfo?.public_url + (img.clean_url || img.image_url)"></div>
                                         <div style="color:#999;margin-top:4px" x-text="img.created_at"></div>
                                     </div>
                                     <div class="actions">
@@ -583,7 +582,7 @@
                         });
                         if (res.ok) {
                             const data = await res.json();
-                            this.uploadResult = `上传成功！ID: ${data.id}`;
+                            this.uploadResult = `上传成功！\n${data.url}`;
                             this.showUploadModal = false;
                             this.loadAll();
                         } else {
@@ -622,10 +621,10 @@
                 },
 
                 async copyUrl(img) {
-                    const url = this.serverInfo?.test_url + img.image_url;
+                    const url = this.serverInfo?.public_url + (img.clean_url || img.image_url);
                     try {
                         await navigator.clipboard.writeText(url);
-                        alert('已复制到剪贴板: ' + url);
+                        alert('已复制: ' + url);
                     } catch (e) {
                         prompt('复制链接:', url);
                     }

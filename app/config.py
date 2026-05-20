@@ -6,6 +6,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     API_SECRET: str = "fishmap"
+    DOMAIN: str = os.environ.get("DOMAIN", "fishmap.top")
+    SCHEME: str = os.environ.get("SCHEME", "https")
     MAX_FILE_SIZE: int = 20 * 1024 * 1024  # 20MB
     ALLOWED_TYPES: set = {"image/jpeg", "image/png", "image/webp", "image/gif"}
     ALLOWED_EXTENSIONS: set = {".jpg", ".jpeg", ".png", ".webp", ".gif"}

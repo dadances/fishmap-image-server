@@ -227,6 +227,7 @@ async def get_server_info(_: None = Depends(verify_admin)):
         local_ip=local_ip,
         port=settings.PORT,
         test_url=f"http://{local_ip}:{settings.PORT}",
+        public_url=f"{settings.SCHEME}://{settings.DOMAIN}",
     )
 
 
