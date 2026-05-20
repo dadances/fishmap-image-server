@@ -38,4 +38,4 @@ fi
 echo "部署完成！"
 ENDSSH
 
-echo "管理后台: http://fishmap.top/admin"
+echo "管理后台: http://121.43.194.67:2000/admin"

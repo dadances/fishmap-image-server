@@ -214,7 +214,7 @@ fishmap-image-server/
 bash scripts/deploy.sh
 
 # 3. 配置HTTPS（可选）
-certbot --nginx -d fishmap.top
+certbot --nginx -d 121.43.194.67
 ```
 
 ## 鸿蒙端调用示例
