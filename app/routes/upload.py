@@ -8,6 +8,12 @@ from app.schemas import UploadResponse
 router = APIRouter()
 
 
+def verify_secret(request: Request):
+    secret = request.headers.get("X-API-Secret")
+    if secret != settings.API_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid API secret")
+
+
 @router.post("/upload", response_model=UploadResponse)
 async def upload_image(
     request: Request,
@@ -16,9 +22,7 @@ async def upload_image(
     type: str = Form(...),
     spot_id: Optional[str] = Form(None),
 ):
-    secret = request.headers.get("X-API-Secret")
-    if secret != settings.API_SECRET:
-        raise HTTPException(status_code=401, detail="Invalid API secret")
+    verify_secret(request)
 
     if type not in ("avatar", "fishing_spot", "catch"):
         raise HTTPException(status_code=400, detail="Invalid image type")
@@ -58,3 +62,28 @@ async def upload_image(
         url=f"{settings.SCHEME}://{settings.DOMAIN}/images/{file_id}{ext}",
         status="active",
     )
+
+
+@router.delete("/images/{image_id}")
+async def delete_image_public(
+    request: Request,
+    image_id: str,
+    uid: str = Form(...),
+):
+    verify_secret(request)
+
+    record = image_service.get_image_by_id(image_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    if record["uid"] != uid:
+        raise HTTPException(status_code=403, detail="Permission denied: image belongs to another user")
+
+    if record["status"] == "recycled":
+        raise HTTPException(status_code=400, detail="Image already deleted")
+
+    ext = image_service.get_file_extension(record["mime_type"])
+    image_service.recycle_image(image_id, ext)
+    image_service.update_image_status(image_id, "recycled", "用户自行删除")
+
+    return {"success": True, "message": "Image deleted"}
